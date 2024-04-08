@@ -1,0 +1,7 @@
+*-data
+kafka-docker
+kubeconfigs
+venv
+.env
+config*.json
+__pycache__

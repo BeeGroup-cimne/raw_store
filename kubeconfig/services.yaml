@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name:	raw-store
+  namespace: raw-store
+spec:
+  replicas: 10
+  selector:
+    matchLabels:
+      app: raw-store
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+        labels:
+            app: raw-store
+    spec:
+      hostAliases:
+        - ip: "10.0.88.76"
+          hostnames:
+            - "master1.internal"
+        - ip: "10.0.87.95"
+          hostnames:
+            - "master2.internal"
+        - ip: "10.0.88.132"
+          hostnames:
+            - "worker1.internal"
+        - ip: "10.0.86.33"
+          hostnames:
+            - "worker2.internal"
+        - ip: "10.0.87.145"
+          hostnames:
+            - "worker3.internal"
+        - ip: "10.0.86.214"
+          hostnames:
+            - "worker4.internal"
+        - ip: "10.0.129.220"
+          hostnames:
+            - "kafka1.internal"
+        - ip: "10.0.88.175"
+          hostnames:
+            - "database1-vpn"
+        - ip: "10.0.88.151"
+          hostnames:
+            - "database2-vpn"
+        - ip: "10.0.87.50"
+          hostnames:
+            - "database3-vpn"
+        - ip: "10.0.88.152"
+          hostnames:
+            - "druid-1.internal"
+      containers:
+        - name: raw-store
+          image: docker.tech.beegroup-cimne.com/jobs/raw_store:latest
+          command: ["python3", "__main__.py"]
+          #command: ["/bin/sh", "-ec", "sleep 1000"]
+          env:
+            - name: CONF_FILE
+              value: "config.json"
+          volumeMounts:
+          - name: raw-store-secret
+            mountPath: /app/config.json
+            subPath: config.json
+      imagePullSecrets:
+        - name: registrypullsecret
+      volumes:
+        - name: raw-store-secret
+          secret:
+            secretName: raw-store-secret
+            items:
+            - key: config.json
+              path: config.json
+
+ #kubectl create secret generic raw-store-secret --from-file=config.json=config.json -n raw-store
