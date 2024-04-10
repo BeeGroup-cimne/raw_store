@@ -25,7 +25,7 @@ data = [{"id": "1", "time": 1711128387, "value": 1, "meta_info1": "a"},
         {"id": "2", "time": 1711128387, "value": 3, "meta_info1": "a"}
 ]
 config = beelib.beeconfig.read_config()
-producer = beelib.beekafka.create_kafka_producer(config)
+producer = beelib.beekafka.create_kafka_producer(config['kafka'], encoding="JSON")
 beelib.beekafka.send_to_kafka(producer, "test.hbase", None, data, table="sourceAPI:raw_sourceAPI_PT1H_", row_keys=["id", "time"])
 
 ```
