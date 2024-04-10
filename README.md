@@ -1,7 +1,7 @@
 # STORE RAW
-This application is used to store the raw data to HBase. 
+This application is used to store the raw data to HBase and Druid. 
 
-It will accept messages sent to the topic partitions following the pattern `.*.hbase`
+It will accept messages sent to the topic partitions following the pattern `.*.raw_data`
 
 ### Message Schema
 
@@ -11,7 +11,8 @@ The message schema that this application will accept is as follows:
 {
   "table": <table>,
   "row_keys": <row_keys>,
-  "data": [<list of records>]
+  "druid": <druid kafka topic(optional>,
+  "data": [<list of records>],
 }
 ```
 
@@ -26,12 +27,19 @@ data = [{"id": "1", "time": 1711128387, "value": 1, "meta_info1": "a"},
 ]
 config = beelib.beeconfig.read_config()
 producer = beelib.beekafka.create_kafka_producer(config['kafka'], encoding="JSON")
-beelib.beekafka.send_to_kafka(producer, "test.hbase", None, data, table="sourceAPI:raw_sourceAPI_PT1H_", row_keys=["id", "time"])
-
+# additionally add 'druid' parameter to send the data to druid
+beelib.beekafka.send_to_kafka(producer, "test.hbase", None, data, table="sourceAPI:raw_sourceAPI_PT1H_", row_keys=["id", "time"]) 
 ```
-**notice that when first creating a topic, we must need to wait up to 5 minutes for the consumer to detect the new topic and 
-subscribe to it. All messages sent before the subscription will be lost. We recommend to create the topic and wait for 
-the consumer to subscribe**
+**TIPS:** 
+>
+>*When creating a new topic first, we must wait up to 5 minutes for the consumer to detect the new topic and 
+subscribe to it.*
+
+>*All messages sent before the subscription will be lost. We recommend to create the topic and wait for 
+the consumer to subscribe*
+
+>*Notice the messages should be sent with the JSON encoding*
+
 
 The previous example will create the key as `id~time` and the columns `info:<field>` and store it in the table `sourceAPI:raw_sourceAPI_PT1H_`
 

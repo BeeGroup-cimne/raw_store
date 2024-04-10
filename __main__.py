@@ -13,6 +13,7 @@ def store_consumer():
     consumer.subscribe(pattern=".*.hbase")
     for record in consumer:
         record = record.value
+
         start = time.time()
         if "table" in record:
             hbase_table = record['table']
@@ -27,6 +28,10 @@ def store_consumer():
         try:
             beelib.beehbase.save_to_hbase(record['data'], hbase_table, conf['hbase']['connection'], [("info", "all")],
                                           row_keys)
+            if "druid" in record and record['druid']:
+                producer = beelib.beekafka.create_kafka_producer(conf['kafka'], encoding="JSON")
+                for d in record['data']:
+                    producer.send(record['druid'], d)
         except Exception as e:
             logger.error(f"Error saving {record['data']} to {hbase_table} with {e}")
         logger.info(f"saved with processing time {time.time() - start}")
