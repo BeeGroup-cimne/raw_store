@@ -9,8 +9,9 @@ def store_consumer():
     logger.info("Starting consumer")
     load_dotenv.load_dotenv()
     conf = beelib.beeconfig.read_config()
-    consumer = beelib.beekafka.create_kafka_consumer(conf['kafka'], encoding="JSON", group_id="store_raw_data")
-    consumer.subscribe(pattern=".*.hbase")
+    consumer = beelib.beekafka.create_kafka_consumer(conf['kafka']['connection'], encoding="JSON",
+                                                     group_id=conf['kafka']['consumer_group'])
+    consumer.subscribe(pattern=conf['kafka']['listen_topic'])
     for record in consumer:
         record = record.value
         start = time.time()
