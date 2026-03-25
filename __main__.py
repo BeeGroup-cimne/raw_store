@@ -8,19 +8,65 @@ import pandas as pd
 import hashlib
 
 
-def add_partition_key_ts(items, ts_column):
+def transform_data_ts(items, ts_column, hash_column):
     years = [pd.to_datetime(x[ts_column], unit="s").year for x in items]
+    new_items = []
     for i, it in enumerate(items):
-        it['year'] = years[i]
-    return items
+        it_new = {
+            'year': years[i],
+            'hash': it.pop(hash_column),
+            'ts': it.pop(ts_column)
+        }
+        for key, val in it.items():
+            it_new[key] = str(val)
+        new_items.append(it_new)
+    return new_items
 
 
-def add_partition_key_static(items, id_column):
+def get_ts_options():
+    return {
+        'partition_rows': {
+            'rows': ['hash', 'year'],
+            'types': ['text', 'int']
+        },
+        'sort_row': {
+            'rows': ['ts'],
+            'types': ['int']
+        },
+        'columns': {
+            'info': ['all'],
+        }
+    }
+
+
+def transform_data_static(items, id_column):
     ids = [int(hashlib.md5(x[id_column].encode()).hexdigest(), 16) % 100 for x in items]
+    new_items = []
     for i, it in enumerate(items):
-        it['pk'] = ids[i]
-    return items
+        it_new = {
+            'pk': ids[i],
+            'id': it.pop(id_column),
+        }
+        for key, val in it.items():
+            it_new[key] = str(val)
+        new_items.append(it_new)
+    return new_items
 
+
+def get_static_options():
+    return {
+        'partition_rows': {
+            'rows': ['pk'],
+            'types': ['int']
+        },
+        'sort_row': {
+            'rows': ['id'],
+            'types': ['text']
+        },
+        'columns': {
+            'info': ['all'],
+        }
+    }
 
 
 def store_consumer(database):
@@ -63,102 +109,29 @@ def store_consumer(database):
                 elif database == "cassandra":
                     # TODO: REMOVE WHEN MIGRATED TO ALL INGESTORS
                     if ["device", "timestamp"] == row_key:
-                        options = {
-                            'partition_rows': {
-                                'rows': ['device', 'year'],
-                                'types': ['text', 'int']
-                            },
-                            'sort_row': {
-                                'rows': ['timestamp'],
-                                'types': ['int']
-                            },
-                            'columns': {
-                                'info': ['all'],
-                            }
-                        }
                         cassandra_table = table.replace(":", ".")
-                        record['data'] = add_partition_key_ts(record['data'], 'timestamp')
+                        record['data'] = transform_data_ts(record['data'], 'timestamp', 'device')
+                        options = get_ts_options()
                     elif ["id", "ts"] == row_key:
-                        options = {
-                            'partition_rows': {
-                                'rows': ['id', 'year'],
-                                'types': ['text', 'int']
-                            },
-                            'sort_row': {
-                                'rows': ['ts'],
-                                'types': ['int']
-                            },
-                            'columns': {
-                                'info': ['all'],
-                            }
-                        }
                         cassandra_table = table.replace(":", ".")
-                        record['data'] = add_partition_key_ts(record['data'], 'ts')
-
+                        record['data'] = transform_data_ts(record['data'], 'ts', 'id')
+                        options = get_ts_options()
                     elif ['uri', 'utcdate'] == row_key:
-                        options = {
-                            'partition_rows': {
-                                'rows': ['uri', 'year'],
-                                'types': ['text', 'int']
-                            },
-                            'sort_row': {
-                                'rows': ['utcdate'],
-                                'types': ['int']
-                            },
-                            'columns': {
-                                'info': ['all'],
-                            }
-                        }
                         cassandra_table = table.replace(":", ".")
-                        record['data'] = add_partition_key_ts(record['data'], 'utcdate')
+                        record['data'] = transform_data_ts(record['data'], 'utcdate', 'uri')
+                        options = get_ts_options()
                     elif ['uri', 'periode'] == row_key:
-                        options = {
-                            'partition_rows': {
-                                'rows': ['uri', 'year'],
-                                'types': ['text', 'int']
-                            },
-                            'sort_row': {
-                                'rows': ['periode'],
-                                'types': ['int']
-                            },
-                            'columns': {
-                                'info': ['all'],
-                            }
-                        }
                         cassandra_table = table.replace(":", ".")
-                        record['data'] = add_partition_key_ts(record['data'], 'periode')
+                        record['data'] = transform_data_ts(record['data'], 'periode', 'uri')
+                        options = get_ts_options()
                     elif ["uri", "DATA_HORA_LECTURA"] == row_key:
-                        options = {
-                            'partition_rows': {
-                                'rows': ['uri', 'year'],
-                                'types': ['text', 'int']
-                            },
-                            'sort_row': {
-                                'rows': ['DATA_HORA_LECTURA'],
-                                'types': ['int']
-                            },
-                            'columns': {
-                                'info': ['all'],
-                            }
-                        }
                         cassandra_table = table.replace(":", ".")
-                        record['data'] = add_partition_key_ts(record['data'], 'DATA_HORA_LECTURA')
+                        record['data'] = transform_data_ts(record['data'], 'DATA_HORA_LECTURA', 'uri')
+                        options = get_ts_options()
                     elif ['id'] == row_key:
-                        options = {
-                            'partition_rows': {
-                                'rows': ['pk'],
-                                'types': ['int']
-                            },
-                            'sort_row': {
-                                'rows': ['id'],
-                                'types': ['text']
-                            },
-                            'columns': {
-                                'info': ['all'],
-                            }
-                        }
                         cassandra_table = table.replace(":", ".")
-                        record['data'] = add_partition_key_static(record['data'], 'id')
+                        record['data'] = transform_data_static(record['data'], 'id')
+                        options = get_static_options()
                     else:
                         continue
                     beelib.beecassandra.save_to_cassandra(record['data'], cassandra_table, session, options)
