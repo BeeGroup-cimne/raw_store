@@ -51,7 +51,7 @@ spec:
             - "druid-1.internal"
       containers:
         - name: raw-store-cassandra-infraestructures
-          image: 1l41bgc7.c1.gra9.container-registry.ovh.net/library/hbase_raw_ingestor:latest
+          image: 1l41bgc7.c1.gra9.container-registry.ovh.net/library/hbase_raw_ingestor:new_kafka
           command: ["python3", "__main__.py", "-db", "cassandra"]
           #command: ["/bin/sh", "-ec", "sleep 1000"]
           env:
@@ -61,6 +61,15 @@ spec:
           - name: raw-store-secret-cassandra
             mountPath: /app/config.json
             subPath: config.json
+          - name: kafka-secret
+            mountPath: /app/kafka_ca_server.crt
+            subPath: kafka_ca_server.crt
+          - name: kafka-secret
+            mountPath: /app/kafka_ca_user.crt
+            subPath: kafka_ca_user.crt
+          - name: kafka-secret
+            mountPath: /app/kafka_key_user.key
+            subPath: kafka_key_user.key
       imagePullSecrets:
         - name: odin1pullsecret
       volumes:
@@ -70,4 +79,16 @@ spec:
             items:
             - key: config.json
               path: config.json
+        - name: kafka-secret
+          secret:
+            secretName: kafka-secret
+            items:
+              - key: kafka_ca_server.crt
+                path: kafka_ca_server.crt
+              - key: kafka_ca_user.crt
+                path: kafka_ca_user.crt
+              - key: kafka_key_user.key
+                path: kafka_key_user.key
+
 # kubectl create secret generic raw-store-secret-cassandra --from-file=config.json=config_cassandra.json -n raw-store
+# kubectl create secret generic kafka-secret --from-file=kafka_ca_server.crt=/Users/eloigabal/Downloads/clipboard.txt --from-file=kafka_ca_user.crt=/Users/eloigabal/Downloads/clipboard\ \(1\).txt --from-file=kafka_key_user.key=/Users/eloigabal/Downloads/clipboard\ \(2\).txt -n raw-store
