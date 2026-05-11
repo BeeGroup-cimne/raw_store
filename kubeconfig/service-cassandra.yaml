@@ -1,64 +1,30 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name:	raw-store-cassandra-infraestructures
-  namespace: raw-store
+  name:	raw-store-infraestructures-prod
+  namespace: icat-prod-ingestors
 spec:
   replicas: 10
   selector:
     matchLabels:
-      app: raw-store-cassandra-infraestructures
+      app: raw-store-infraestructures-prod
   strategy:
     type: Recreate
   template:
     metadata:
         labels:
-            app: raw-store-cassandra-infraestructures
+            app: raw-store-infraestructures-prod
     spec:
-      hostAliases:
-        - ip: "10.0.88.76"
-          hostnames:
-            - "master1.internal"
-        - ip: "10.0.87.95"
-          hostnames:
-            - "master2.internal"
-        - ip: "10.0.88.132"
-          hostnames:
-            - "worker1.internal"
-        - ip: "10.0.86.33"
-          hostnames:
-            - "worker2.internal"
-        - ip: "10.0.87.145"
-          hostnames:
-            - "worker3.internal"
-        - ip: "10.0.86.214"
-          hostnames:
-            - "worker4.internal"
-        - ip: "10.0.129.220"
-          hostnames:
-            - "kafka1.internal"
-        - ip: "10.0.88.175"
-          hostnames:
-            - "database1-vpn"
-        - ip: "10.0.88.151"
-          hostnames:
-            - "database2-vpn"
-        - ip: "10.0.87.50"
-          hostnames:
-            - "database3-vpn"
-        - ip: "10.0.88.152"
-          hostnames:
-            - "druid-1.internal"
       containers:
-        - name: raw-store-cassandra-infraestructures
-          image: 1l41bgc7.c1.gra9.container-registry.ovh.net/library/hbase_raw_ingestor:new_kafka
+        - name: raw-store-infraestructures-prod
+          image: 853583158095.dkr.ecr.eu-west-1.amazonaws.com/ecr-library-hbase-raw-ingestor:prod
           command: ["python3", "__main__.py", "-db", "cassandra"]
           #command: ["/bin/sh", "-ec", "sleep 1000"]
           env:
             - name: CONF_FILE
               value: "config.json"
           volumeMounts:
-          - name: raw-store-secret-cassandra
+          - name: raw-store-secret
             mountPath: /app/config.json
             subPath: config.json
           - name: kafka-secret
@@ -70,12 +36,20 @@ spec:
           - name: kafka-secret
             mountPath: /app/kafka_key_user.key
             subPath: kafka_key_user.key
-      imagePullSecrets:
-        - name: odin1pullsecret
+
+          - name: kafka-secret-ovh
+            mountPath: /app/kafka_ca_server-ovh.crt
+            subPath: kafka_ca_server.crt
+          - name: kafka-secret-ovh
+            mountPath: /app/kafka_ca_user-ovh.crt
+            subPath: kafka_ca_user.crt
+          - name: kafka-secret-ovh
+            mountPath: /app/kafka_key_user-ovh.key
+            subPath: kafka_key_user.key
       volumes:
-        - name: raw-store-secret-cassandra
+        - name: raw-store-secret
           secret:
-            secretName: raw-store-secret-cassandra
+            secretName: raw-store-secret
             items:
             - key: config.json
               path: config.json
@@ -89,6 +63,17 @@ spec:
                 path: kafka_ca_user.crt
               - key: kafka_key_user.key
                 path: kafka_key_user.key
+        - name: kafka-secret-ovh
+          secret:
+            secretName: kafka-secret-ovh
+            items:
+              - key: kafka_ca_server.crt
+                path: kafka_ca_server.crt
+              - key: kafka_ca_user.crt
+                path: kafka_ca_user.crt
+              - key: kafka_key_user.key
+                path: kafka_key_user.key
 
-# kubectl create secret generic raw-store-secret-cassandra --from-file=config.json=config_cassandra.json -n raw-store
-# kubectl create secret generic kafka-secret --from-file=kafka_ca_server.crt=/Users/eloigabal/Downloads/clipboard.txt --from-file=kafka_ca_user.crt=/Users/eloigabal/Downloads/clipboard\ \(1\).txt --from-file=kafka_key_user.key=/Users/eloigabal/Downloads/clipboard\ \(2\).txt -n raw-store
+# kubectl create secret generic raw-store-secret --from-file=config.json=config_aws.json -n icat-prod-ingestors
+# kubectl create secret generic kafka-secret --from-file=kafka_ca_server.crt=/Users/eloigabal/kafka2/ca.crt --from-file=kafka_ca_user.crt=/Users/eloigabal/kafka2/user.crt --from-file=kafka_key_user.key=/Users/eloigabal/kafka2/user.key -n icat-prod-ingestors
+# kubectl create secret generic kafka-secret-ovh --from-file=kafka_ca_server.crt=/Users/eloigabal/kafka/ca.crt --from-file=kafka_ca_user.crt=/Users/eloigabal/kafka/user_admin/user.crt --from-file=kafka_key_user.key=/Users/eloigabal/kafka/user_admin/user.key -n icat-prod-ingestors

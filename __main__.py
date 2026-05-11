@@ -7,6 +7,8 @@ import os
 import pandas as pd
 import hashlib
 
+logger = logging.getLogger(__name__)
+
 
 def transform_data_ts(items, ts_column, hash_column):
     years = [pd.to_datetime(x[ts_column], unit="s").year for x in items]
@@ -76,6 +78,12 @@ def store_consumer(database):
     consumer = beelib.beekafka.create_kafka_consumer(conf['kafka']['connection'], encoding="JSON",
                                                      group_id=conf['kafka']['consumer_group'])
     consumer.subscribe(pattern=conf['kafka']['listen_topic'])
+    # TODO: Remove: it resend the messages to kafka-ovh
+    try:
+        producer_ovh = beelib.beekafka.create_kafka_producer(conf['kafka_ovh']['connection'], encoding="JSON")
+    except Exception as e:
+        logger.warning(f"[kafka_ovh] Producer no disponible, es desactiva el reenviament: {e}")
+        producer_ovh = None
     if database == "cassandra":
         session, cluster = beelib.beecassandra.get_session(conf['cassandra'])
     else:
@@ -83,8 +91,13 @@ def store_consumer(database):
         cluster = None
 
     for record in consumer:
+        if producer_ovh is not None:
+            try:
+                producer_ovh.send(record.topic, value=record.value)
+                producer_ovh.producer.flush()
+            except Exception as e:
+                logger.warning(f"[kafka_ovh] Error reenviant missatge: {e}")
         record = record.value
-        print(record['data'])
         start = time.time()
         if "tables" in record:
             tables = record['tables']
@@ -99,45 +112,51 @@ def store_consumer(database):
         if len(tables) != len(row_keys):
             logger.error(f"'tables' and 'row_keys' must be equal length")
             continue
+        original_data = record['data']
         for index, table in enumerate(tables):
             row_key = row_keys[index]
+            data = [dict(item) for item in original_data]
             try:
                 if database == "hbase":
-                    beelib.beehbase.save_to_hbase(record['data'], table, conf['hbase']['connection'],
+                    beelib.beehbase.save_to_hbase(data, table, conf['hbase']['connection'],
                                                   [("info", "all")],
                                                   row_key)
                 elif database == "cassandra":
                     # TODO: REMOVE WHEN MIGRATED TO ALL INGESTORS
                     if ["device", "timestamp"] == row_key:
                         cassandra_table = table.replace(":", ".")
-                        record['data'] = transform_data_ts(record['data'], 'timestamp', 'device')
+                        data = transform_data_ts(data, 'timestamp', 'device')
                         options = get_ts_options()
                     elif ["id", "ts"] == row_key:
                         cassandra_table = table.replace(":", ".")
-                        record['data'] = transform_data_ts(record['data'], 'ts', 'id')
+                        data = transform_data_ts(data, 'ts', 'id')
                         options = get_ts_options()
                     elif ['uri', 'utcdate'] == row_key:
                         cassandra_table = table.replace(":", ".")
-                        record['data'] = transform_data_ts(record['data'], 'utcdate', 'uri')
+                        data = transform_data_ts(data, 'utcdate', 'uri')
                         options = get_ts_options()
                     elif ['uri', 'periode'] == row_key:
                         cassandra_table = table.replace(":", ".")
-                        record['data'] = transform_data_ts(record['data'], 'periode', 'uri')
+                        data = transform_data_ts(data, 'periode', 'uri')
                         options = get_ts_options()
                     elif ["uri", "DATA_HORA_LECTURA"] == row_key:
                         cassandra_table = table.replace(":", ".")
-                        record['data'] = transform_data_ts(record['data'], 'DATA_HORA_LECTURA', 'uri')
+                        data = transform_data_ts(data, 'DATA_HORA_LECTURA', 'uri')
                         options = get_ts_options()
                     elif ['id'] == row_key:
                         cassandra_table = table.replace(":", ".")
-                        record['data'] = transform_data_static(record['data'], 'id')
+                        data = transform_data_static(data, 'id')
                         options = get_static_options()
+                    elif ["uri_measurement", "timestamp"] == row_key:
+                        cassandra_table = table.replace(":", ".")
+                        data = transform_data_ts(data, 'timestamp', 'uri_measurement')
+                        options = get_ts_options()
                     else:
                         continue
-                    beelib.beecassandra.save_to_cassandra(record['data'], cassandra_table, session, options)
+                    beelib.beecassandra.save_to_cassandra(data, cassandra_table, session, options)
 
             except Exception as e:
-                logger.error(f"Error saving {record['data']} to {table} with {e}")
+                logger.error(f"Error saving {data} to {table} with {e}")
         logger.info(f"saved with processing time {time.time() - start}")
 
 
@@ -150,5 +169,4 @@ if __name__ == "__main__":
     else:
         args = parser.parse_args()
         logging.basicConfig(format='%(levelname)s:%(asctime)s:%(message)s', level=args.log)
-        logger = logging.getLogger(__name__)
         store_consumer(args.database)

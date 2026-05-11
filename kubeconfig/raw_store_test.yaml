@@ -1,0 +1,81 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: raw-store-test
+  namespace: icat-dev-ingestors
+spec:
+  suspend: true
+  schedule: "*/15 * * * *"
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      template:
+        metadata:
+          labels:
+            logger: dexma-logger
+        spec:
+          containers:
+            - name: raw-store-test
+              image: 853583158095.dkr.ecr.eu-west-1.amazonaws.com/ecr-library-hbase-raw-ingestor:prod
+              command: ["/bin/sh", "-ec", "sleep 1000"]
+              env:
+                - name: CONF_FILE
+                  value: "config.json"
+              volumeMounts:
+              - name: raw-store-secret
+                mountPath: /app/config.json
+                subPath: config.json
+              - name: kafka-secret
+                mountPath: /app/kafka_ca_server.crt
+                subPath: kafka_ca_server.crt
+              - name: kafka-secret
+                mountPath: /app/kafka_ca_user.crt
+                subPath: kafka_ca_user.crt
+              - name: kafka-secret
+                mountPath: /app/kafka_key_user.key
+                subPath: kafka_key_user.key
+
+              - name: kafka-secret-ovh
+                mountPath: /app/kafka_ca_server_ovh.crt
+                subPath: kafka_ca_server.crt
+              - name: kafka-secret-ovh
+                mountPath: /app/kafka_ca_user_ovh.crt
+                subPath: kafka_ca_user.crt
+              - name: kafka-secret-ovh
+                mountPath: /app/kafka_key_user_ovh.key
+                subPath: kafka_key_user.key
+          volumes:
+            - name: raw-store-secret
+              secret:
+                secretName: raw-store-secret
+                items:
+                - key: config.json
+                  path: config.json
+            - name: kafka-secret
+              secret:
+                secretName: kafka-secret
+                items:
+                  - key: kafka_ca_server.crt
+                    path: kafka_ca_server.crt
+                  - key: kafka_ca_user.crt
+                    path: kafka_ca_user.crt
+                  - key: kafka_key_user.key
+                    path: kafka_key_user.key
+            - name: kafka-secret-ovh
+              secret:
+                secretName: kafka-secret-ovh
+                items:
+                  - key: kafka_ca_server.crt
+                    path: kafka_ca_server.crt
+                  - key: kafka_ca_user.crt
+                    path: kafka_ca_user.crt
+                  - key: kafka_key_user.key
+                    path: kafka_key_user.key
+          restartPolicy: Never
+
+
+# kubectl create secret generic raw-store-secret --from-file=config.json=config_aws.json -n icat-dev-ingestors
+# kubectl create secret generic kafka-secret --from-file=kafka_ca_server.crt=/Users/eloigabal/kafka2/ca.crt --from-file=kafka_ca_user.crt=/Users/eloigabal/kafka2/user.crt --from-file=kafka_key_user.key=/Users/eloigabal/kafka2/user.key -n icat-dev-ingestors
+# kubectl create secret generic kafka-secret-ovh --from-file=kafka_ca_server.crt=/Users/eloigabal/kafka/ca.crt --from-file=kafka_ca_user.crt=/Users/eloigabal/kafka/user_admin/user.crt --from-file=kafka_key_user.key=/Users/eloigabal/kafka/user_admin/user.key -n icat-dev-ingestors
