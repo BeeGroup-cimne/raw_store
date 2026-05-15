@@ -38,13 +38,13 @@ spec:
             subPath: kafka_key_user.key
 
           - name: kafka-secret-ovh
-            mountPath: /app/kafka_ca_server-ovh.crt
+            mountPath: /app/kafka_ca_server_ovh.crt
             subPath: kafka_ca_server.crt
           - name: kafka-secret-ovh
-            mountPath: /app/kafka_ca_user-ovh.crt
+            mountPath: /app/kafka_ca_user_ovh.crt
             subPath: kafka_ca_user.crt
           - name: kafka-secret-ovh
-            mountPath: /app/kafka_key_user-ovh.key
+            mountPath: /app/kafka_key_user_ovh.key
             subPath: kafka_key_user.key
       volumes:
         - name: raw-store-secret

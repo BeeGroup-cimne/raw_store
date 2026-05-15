@@ -94,9 +94,13 @@ def store_consumer(database):
         if producer_ovh is not None:
             try:
                 producer_ovh.send(record.topic, value=record.value)
-                producer_ovh.producer.flush()
+                pending = producer_ovh.producer.flush(timeout=2)
+                if pending > 0:
+                    logger.warning(f"[kafka_ovh] flush timeout: {pending} missatges no enviats, es desactiva el reenviament")
+                    producer_ovh = None
             except Exception as e:
                 logger.warning(f"[kafka_ovh] Error reenviant missatge: {e}")
+                producer_ovh = None
         record = record.value
         start = time.time()
         if "tables" in record:

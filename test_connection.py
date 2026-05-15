@@ -36,7 +36,7 @@ def test_kafka(config, key="kafka"):
     logger.info(f"[{label}] Connectant a {config[key]['connection']['bootstrap.servers']}...")
     try:
         producer = beelib.beekafka.create_kafka_producer(config[key]["connection"], "JSON")
-        producer.producer.flush()
+        producer.producer.flush(timeout=5)
         producer.producer.close()
         logger.info(f"[{label}] OK")
         return True

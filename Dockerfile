@@ -11,6 +11,6 @@ COPY . .
 #  docker buildx build --platform linux/amd64,linux/arm64 --push -t 1l41bgc7.c1.gra9.container-registry.ovh.net/library/hbase_raw_ingestor:new_kafka .
 #  docker buildx build --platform linux/amd64,linux/arm64 --push -t 853583158095.dkr.ecr.eu-west-1.amazonaws.com/ecr-library-hbase-raw-ingestor:prod .
 #  TAG=$(git rev-parse --short HEAD)
-#  docker buildx build --platform linux/amd64,linux/arm64 --push -t 853583158095.dkr.ecr.eu-west-1.amazonaws.com/ecr-infraestructures-dexma-ingestor:prod -t 853583158095.dkr.ecr.eu-west-1.amazonaws.com/ecr-infraestructures-dexma-ingestor:$TAG .
+#  docker buildx build --platform linux/amd64,linux/arm64 --push -t 853583158095.dkr.ecr.eu-west-1.amazonaws.com/ecr-library-hbase-raw-ingestor:prod -t 853583158095.dkr.ecr.eu-west-1.amazonaws.com/ecr-library-hbase-raw-ingestor:$TAG .
 
-#  kubectl set image cronjob/bacnet-test bacnet-test=853583158095.dkr.ecr.eu-west-1.amazonaws.com/ecr-infraestructures-bacnet-ingestor:$TAG -n icat-dev-ingestors
+#  kubectl set image deployment/raw-store-infraestructures-prod raw-store-infraestructures-prod=853583158095.dkr.ecr.eu-west-1.amazonaws.com/ecr-library-hbase-raw-ingestor:$TAG -n icat-prod-ingestors
