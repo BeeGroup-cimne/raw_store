@@ -80,7 +80,7 @@ def store_consumer(database):
     consumer.subscribe(pattern=conf['kafka']['listen_topic'])
     # TODO: Remove: it resend the messages to kafka-ovh
     try:
-        producer_ovh = beelib.beekafka.create_kafka_producer(conf['kafka_ovh']['connection'], encoding="JSON")
+        producer_ovh = beelib.beekafka.create_kafka_producer(conf['kafka_ovh']['connection'], encoding="JSON",  max_block_ms=10000)
     except Exception as e:
         logger.warning(f"[kafka_ovh] Producer no disponible, es desactiva el reenviament: {e}")
         producer_ovh = None
@@ -89,8 +89,17 @@ def store_consumer(database):
     else:
         session = None
         cluster = None
-
+    ts_restart_ovh = None
     for record in consumer:
+        if ts_restart_ovh and (ts_restart_ovh + 10*60) <= time.time():
+            try:
+                producer_ovh = beelib.beekafka.create_kafka_producer(conf['kafka_ovh']['connection'], encoding="JSON",
+                                                                     max_block_ms=10000)
+                ts_restart_ovh = None
+            except Exception as e:
+                logger.warning(f"[kafka_ovh] Producer no disponible, es desactiva el reenviament: {e}")
+                producer_ovh = None
+                ts_restart_ovh = time.time()
         if producer_ovh is not None:
             try:
                 producer_ovh.send(record.topic, value=record.value)
@@ -98,9 +107,11 @@ def store_consumer(database):
                 if pending > 0:
                     logger.warning(f"[kafka_ovh] flush timeout: {pending} missatges no enviats, es desactiva el reenviament")
                     producer_ovh = None
+                    ts_restart_ovh = time.time()
             except Exception as e:
                 logger.warning(f"[kafka_ovh] Error reenviant missatge: {e}")
                 producer_ovh = None
+                ts_restart_ovh = time.time()
         record = record.value
         start = time.time()
         if "tables" in record:
