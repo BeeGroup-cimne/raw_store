@@ -91,6 +91,8 @@ def store_consumer(database):
         cluster = None
     ts_restart_ovh = None
     for record in consumer:
+        logger.info(f"Read from topic {conf['kafka']['listen_topic']}, {record}")
+
         if ts_restart_ovh and (ts_restart_ovh + 10*60) <= time.time():
             try:
                 producer_ovh = beelib.beekafka.create_kafka_producer(conf['kafka_ovh']['connection'], encoding="JSON")
