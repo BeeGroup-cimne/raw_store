@@ -168,7 +168,8 @@ def store_consumer(database):
                     else:
                         continue
                     beelib.beecassandra.save_to_cassandra(data, cassandra_table, session, options)
-
+                elif database == "none":
+                    continue
             except Exception as e:
                 logger.error(f"Error saving {data} to {table} with {e}")
         logger.info(f"saved with processing time {time.time() - start}")
@@ -177,7 +178,7 @@ def store_consumer(database):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--log", "-l", default="INFO", help="The log level")
-    parser.add_argument("--database", "-db", default="hbase", choices=['hbase', 'cassandra'], help="The database to save")
+    parser.add_argument("--database", "-db", default="hbase", choices=['hbase', 'cassandra', 'none'], help="The database to save")
     if os.getenv("PYCHARM_HOSTED") is not None:
         args = parser.parse_args(["--database", "hbase"])
     else:
