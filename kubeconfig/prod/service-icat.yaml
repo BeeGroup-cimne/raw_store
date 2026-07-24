@@ -20,6 +20,13 @@ spec:
           image: 853583158095.dkr.ecr.eu-west-1.amazonaws.com/ecr-library-hbase-raw-ingestor:prod
           command: ["python3", "__main__.py", "-db", "cassandra"]
           #command: ["/bin/sh", "-ec", "sleep 1000"]
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
           env:
             - name: CONF_FILE
               value: "config.json"
