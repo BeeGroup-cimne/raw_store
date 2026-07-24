@@ -23,6 +23,8 @@ spec:
           env:
             - name: CONF_FILE
               value: "config.json"
+            - name: CLIENT
+              value: "icat"
           volumeMounts:
           - name: raw-store-secret
             mountPath: /app/config.json

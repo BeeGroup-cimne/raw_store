@@ -23,6 +23,8 @@ spec:
           env:
             - name: CONF_FILE
               value: "config.json"
+            - name: CLIENT
+              value: "sime"
           volumeMounts:
           - name: raw-store-secret
             mountPath: /app/config.json

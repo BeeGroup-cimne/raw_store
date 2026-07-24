@@ -12,8 +12,10 @@ import beelib.beecassandra
 import beelib.beeconfig
 import load_dotenv
 
+from logging_setup import setup_logging
+
 load_dotenv.load_dotenv()
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+setup_logging(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # ─── CONFIG ──────────────────────────────────────────────────────────────────
@@ -41,7 +43,7 @@ def test_kafka(config, key="kafka"):
         logger.info(f"[{label}] OK")
         return True
     except Exception as e:
-        logger.error(f"[{label}] Error: {e}")
+        logger.error(f"[{label}] Error: {e}", exc_info=True)
         return False
 
 
@@ -56,7 +58,7 @@ def test_cassandra(config):
         logger.info(f"[Cassandra] OK — versió {row.release_version if row else 'desconeguda'}")
         return True
     except Exception as e:
-        logger.error(f"[Cassandra] Error: {e}")
+        logger.error(f"[Cassandra] Error: {e}", exc_info=True)
         return False
     finally:
         if session:
@@ -105,4 +107,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception:
+        logger.critical("Unhandled exception in raw-store test_connection", exc_info=True)
+        raise
