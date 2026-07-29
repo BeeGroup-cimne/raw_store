@@ -86,7 +86,7 @@ spec:
 
 
 # 1. Create the Config Secret
-# kubectl create secret generic raw-store-secret --from-file=config.json=config_aws.json -n sime-prod-ingestors
+# kubectl create secret generic raw-store-secret-cosmic --from-file=config.json=config_aws_cosmic.json -n sime-prod-ingestors
 
 # 2. Create the Primary Kafka Secret
 # kubectl create secret generic kafka-secret --from-file=kafka_ca_server.crt=/Users/arian/kafka2/ca.crt --from-file=kafka_ca_user.crt=/Users/arian/kafka2/user.crt --from-file=kafka_key_user.key=/Users/arian/kafka2/user.key -n sime-prod-ingestors
