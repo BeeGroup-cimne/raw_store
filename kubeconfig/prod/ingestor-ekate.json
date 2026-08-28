@@ -1,0 +1,33 @@
+{
+  "kafka": {
+    "connection": {
+        "bootstrap.servers": "strimzi-cluster-kafka-bootstrap.kafka:9092",
+        "security.protocol": "SSL",
+        "ssl.ca.location": "kafka_ca_server.crt",
+        "ssl.certificate.location": "kafka_ca_user.crt",
+        "ssl.key.location": "kafka_key_user.key"
+    },
+    "listen_topic": "hbase.ekate",
+    "consumer_group": "store_raw_data_ekate"
+  },
+  "hbase": {
+    "connection": {
+      "host": "hbase-service-ekate.ekate",
+      "port": 9090
+    }
+  },
+  "cassandra": {
+    "auth": {
+      "active": "false",
+      "username": "cassandra-ekate-dev-superuser",
+      "password": "esdY2a2SAugkQfXhw66mnPUc-JBDa0NAU4feeJS1jYDNv5evEzDogw"
+    },
+    "connection": {
+      "contact_points": [
+        "cassandra-ekate-dev-dc1-service.ekate"
+      ],
+      "local_dc": "dc1",
+      "port": 9042
+    }
+  }
+}
