@@ -12,7 +12,7 @@ from logging_setup import setup_logging
 logger = logging.getLogger(__name__)
 
 
-def transform_data_ts(items, ts_column, hash_column):
+def transform_data_ts(items, ts_column, hash_column, seq_column=None):
     years = [pd.to_datetime(x[ts_column], unit="s").year for x in items]
     new_items = []
     for i, it in enumerate(items):
@@ -21,21 +21,23 @@ def transform_data_ts(items, ts_column, hash_column):
             'hash': it.pop(hash_column),
             'ts': it.pop(ts_column)
         }
+        if seq_column:
+            it_new['seq'] = int(it.pop(seq_column))
         for key, val in it.items():
             it_new[key] = str(val)
         new_items.append(it_new)
     return new_items
 
 
-def get_ts_options():
+def get_ts_options(with_seq=False):
     return {
         'partition_rows': {
             'rows': ['hash', 'year'],
             'types': ['text', 'int']
         },
         'sort_row': {
-            'rows': ['ts'],
-            'types': ['int']
+            'rows': ['ts', 'seq'] if with_seq else ['ts'],
+            'types': ['int', 'int'] if with_seq else ['int']
         },
         'columns': {
             'info': ['all'],
@@ -196,6 +198,14 @@ def store_consumer(database):
                         cassandra_table = table.replace(":", ".")
                         data = transform_data_ts(data, 'periode', 'uri')
                         options = get_ts_options()
+                    elif ['uri', 'utcdate', 'seq'] == row_key:
+                        cassandra_table = table.replace(":", ".")
+                        data = transform_data_ts(data, 'utcdate', 'uri', seq_column='seq')
+                        options = get_ts_options(with_seq=True)
+                    elif ['uri', 'periode', 'seq'] == row_key:
+                        cassandra_table = table.replace(":", ".")
+                        data = transform_data_ts(data, 'periode', 'uri', seq_column='seq')
+                        options = get_ts_options(with_seq=True)
                     elif ["uri", "DATA_HORA_LECTURA"] == row_key:
                         cassandra_table = table.replace(":", ".")
                         data = transform_data_ts(data, 'DATA_HORA_LECTURA', 'uri')
