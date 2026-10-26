@@ -1,57 +1,62 @@
-# STORE RAW
-This application is used to store the raw data to HBase. 
+# Raw Store
 
-It will accept messages sent to the topic partitions following the pattern `.*.hbase`
+Kafka consumer that persists the raw time series published by the ingestors
+into **HBase** or **Cassandra**. It subscribes to every topic matching the
+pattern `.*.hbase` and stores each message's rows in the tables declared in
+the message itself.
 
-### Message Schema
+## Message schema
 
-The message schema that this application will accept is as follows:
+Each message (JSON-encoded) contains the target tables, row keys and the
+records:
 
-```json 
+```json
 {
   "tables": [<list of tables>],
   "row_keys": [<list of row_keys>],
-  "data": [<list of records>],
+  "data": [<list of records>]
 }
 ```
 
-this schema can be created by using the `beelib` module as follows
+Ingestors produce this schema with `beelib`:
 
 ```python
 import beelib
 
-data = [{"id": "1", "time": 1711128387, "value": 1, "meta_info1": "a"}, 
-        {"id": "1", "time": 1711128388, "value": 12, "meta_info1": "b"}, 
-        {"id": "2", "time": 1711128387, "value": 3, "meta_info1": "a"}
-]
+data = [{"id": "1", "time": 1711128387, "value": 1, "meta_info1": "a"}]
 config = beelib.beeconfig.read_config()
 producer = beelib.beekafka.create_kafka_producer(config['kafka']['connection'], encoding="JSON")
-# send tables and row_keys as array to allow multiple stores with the same data
-beelib.beekafka.send_to_kafka(producer, "test.hbase", None, data, tables=["sourceAPI:raw_sourceAPI_PT1H_"],
-                              row_keys=[["id", "time"]]) 
+beelib.beekafka.send_to_kafka(producer, "test.hbase", None, data,
+                              tables=["sourceAPI:raw_sourceAPI_PT1H_"],
+                              row_keys=[["id", "time"]])
 ```
-**TIPS:** 
->
->*When creating a new topic first, we must wait up to 5 minutes for the consumer to detect the new topic and 
-subscribe to it.*
 
->*All messages sent before the subscription will be lost. We recommend to create the topic and wait for 
-the consumer to subscribe*
+The example above stores `value`/`meta_info1` as `info:*` columns under the
+row key `id~time` in `sourceAPI:raw_sourceAPI_PT1H_`.
 
->*Notice the messages should be sent with the JSON encoding*
+> When creating a new topic, wait up to 5 minutes for the consumer to detect
+> it and subscribe; messages sent before the subscription are lost.
 
->*Create the druid topic if you want to use it*
+## Run
 
-
-The previous example will create the key as `id~time` and the columns `info:<field>` and store it in the table `sourceAPI:raw_sourceAPI_PT1H_`
-
-```cmd
-> scan "sourceAPI:raw_sourceAPI_PT1H_"
-row
-1~1711128387 info:value=1
-1~1711128387 info:meta_info1=a
-1~1711128388 info:value=12
-1~1711128388 info:meta_info1=b
-2~1711128387 info:value=3
-2~1711128387 info:meta_info1=a
+```bash
+pip install -r requirements.txt
+python __main__.py --database hbase        # or: --database cassandra
 ```
+
+Config is read via `beelib.beeconfig.read_config()` (`CONF_FILE`); see
+`test_connection.py` to check the HBase/Cassandra/Kafka connectivity.
+Docker image via `Dockerfile`; production manifests in `kubeconfig/`.
+
+## License
+
+This project is licensed under the European Union Public Licence v. 1.2
+(EUPL-1.2), see the [LICENCE](LICENCE) file.
+
+## Contributors
+
+- Miriam Rodriguez (mrodriguez@cimne.upc.edu)
+- [@ArianH23](https://github.com/ArianH23)
+- [@eloigabal](https://github.com/eloigabal)
+- [@nuuuria](https://github.com/nuuuria)
+- [@josemanuel97](https://github.com/josemanuel97)
