@@ -1,4 +1,4 @@
-beelib @ git+https://github.com/BeeGroup-cimne/beelib@b1b3310020ff66dbfbf53ffedca8030f4f94ecf9
+beelib @ git+https://github.com/BeeGroup-cimne/beelib@0960e496ef2a3722c336f44dfa5e5bcb37380bfc
 duckdb==0.10.1
 elementpath==4.4.0
 falcon==3.1.3

@@ -4,6 +4,7 @@ import beelib
 import load_dotenv
 import logging
 import os
+import signal
 import pandas as pd
 import hashlib
 
@@ -82,6 +83,9 @@ def store_consumer(database):
     consumer = beelib.beekafka.create_kafka_consumer(conf['kafka']['connection'], encoding="JSON",
                                                      group_id=conf['kafka']['consumer_group'])
     consumer.subscribe(pattern=conf['kafka']['listen_topic'])
+    # k8s envia SIGTERM en cada deploy/restart: s'acaba el missatge en curs, es commitejen els offsets i es surt del grup.
+    signal.signal(signal.SIGTERM, lambda signum, frame: consumer.stop())
+    signal.signal(signal.SIGINT, lambda signum, frame: consumer.stop())
     try:
         producer_ovh = beelib.beekafka.create_kafka_producer(conf['kafka_ovh']['connection'], encoding="JSON")
     except Exception as e:
@@ -230,6 +234,11 @@ def store_consumer(database):
         stats["failed" if record_failed else "ok"] += 1
         logger.info(f"saved with processing time {time.time() - start}")
         flush_summary_if_due()
+
+    logger.info("Shutdown signal received, closing consumer", extra={"cloudwatch": True})
+    consumer.close()
+    if cluster is not None:
+        cluster.shutdown()
 
 
 if __name__ == "__main__":
