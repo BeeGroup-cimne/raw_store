@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: raw-store-celine-prod
+  namespace: celine
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: raw-store-celine-prod
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+        labels:
+            app: raw-store-celine-prod
+    spec:
+      containers:
+        - name: raw-store-celine-prod
+          image: 853583158095.dkr.ecr.eu-west-1.amazonaws.com/ecr-library-hbase-raw-ingestor:prod
+          command: ["python3", "__main__.py", "-db", "cassandra"]
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "test $(( $(date +%s) - $(stat -c %Y /tmp/heartbeat) )) -lt 300"]
+            initialDelaySeconds: 120
+            periodSeconds: 60
+            failureThreshold: 3
+          env:
+            - name: CONF_FILE
+              value: "config.json"
+            - name: CLIENT
+              value: "celine"
+          volumeMounts:
+          - name: raw-store-secret
+            mountPath: /app/config.json
+            subPath: config.json
+          - name: kafka-secret
+            mountPath: /app/kafka_ca_server.crt
+            subPath: kafka_ca_server.crt
+          - name: kafka-secret
+            mountPath: /app/kafka_ca_user.crt
+            subPath: kafka_ca_user.crt
+          - name: kafka-secret
+            mountPath: /app/kafka_key_user.key
+            subPath: kafka_key_user.key
+
+          - name: kafka-secret-ovh
+            mountPath: /app/kafka_ca_server_ovh.crt
+            subPath: kafka_ca_server.crt
+          - name: kafka-secret-ovh
+            mountPath: /app/kafka_ca_user_ovh.crt
+            subPath: kafka_ca_user.crt
+          - name: kafka-secret-ovh
+            mountPath: /app/kafka_key_user_ovh.key
+            subPath: kafka_key_user.key
+      volumes:
+        - name: raw-store-secret
+          secret:
+            secretName: raw-store-secret-celine
+            items:
+            - key: config.json
+              path: config.json
+        - name: kafka-secret
+          secret:
+            secretName: kafka-secret
+            items:
+              - key: kafka_ca_server.crt
+                path: kafka_ca_server.crt
+              - key: kafka_ca_user.crt
+                path: kafka_ca_user.crt
+              - key: kafka_key_user.key
+                path: kafka_key_user.key
+        - name: kafka-secret-ovh
+          secret:
+            secretName: kafka-secret-ovh
+            items:
+              - key: kafka_ca_server.crt
+                path: kafka_ca_server.crt
+              - key: kafka_ca_user.crt
+                path: kafka_ca_user.crt
+              - key: kafka_key_user.key
+                path: kafka_key_user.key
