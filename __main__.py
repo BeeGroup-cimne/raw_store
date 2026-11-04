@@ -5,39 +5,12 @@ import load_dotenv
 import logging
 import os
 import signal
-import threading
 import pandas as pd
 import hashlib
-from pathlib import Path
 
 from logging_setup import setup_logging
 
 logger = logging.getLogger(__name__)
-
-# El toca el hilo de start_health_check nomes si Kafka (i Cassandra) responen; la livenessProbe (healthcheck.sh) el mira.
-HEALTH_DEPS_FILE = Path("/tmp/health_deps")
-
-
-def start_health_check(consumer, session, interval_s=60):
-    def loop():
-        while True:
-            ok = True
-            try:
-                consumer.consumer.list_topics(timeout=10)
-            except Exception as e:
-                ok = False
-                logger.error(f"[healthcheck] Kafka KO: {e}", extra={"cloudwatch": True})
-            if session is not None:
-                try:
-                    session.execute("SELECT release_version FROM system.local", timeout=10)
-                except Exception as e:
-                    ok = False
-                    logger.error(f"[healthcheck] Cassandra KO: {e}", extra={"cloudwatch": True})
-            if ok:
-                HEALTH_DEPS_FILE.touch()
-            time.sleep(interval_s)
-
-    threading.Thread(target=loop, daemon=True, name="healthcheck").start()
 
 
 def transform_data_ts(items, ts_column, hash_column, seq_column=None):
@@ -123,7 +96,6 @@ def store_consumer(database):
     else:
         session = None
         cluster = None
-    start_health_check(consumer, session)
     ts_restart_ovh = None
 
     summary_interval_s = 300
