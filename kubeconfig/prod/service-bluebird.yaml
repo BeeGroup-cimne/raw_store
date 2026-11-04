@@ -28,7 +28,7 @@ spec:
               memory: 2Gi
           livenessProbe:
             exec:
-              command: ["sh", "-c", "test $(( $(date +%s) - $(stat -c %Y /tmp/heartbeat) )) -lt 300"]
+              command: ["sh", "/app/healthcheck.sh"]
             initialDelaySeconds: 120
             periodSeconds: 60
             failureThreshold: 3
