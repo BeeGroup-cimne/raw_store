@@ -46,8 +46,11 @@ def get_ts_options(with_seq=False):
     }
 
 
-def transform_data_static(items, id_column):
-    ids = [int(hashlib.md5(x[id_column].encode()).hexdigest(), 16) % 100 for x in items]
+DEFAULT_BUCKETS = 100       # el valor fix d'abans: els missatges sense `buckets` continuen anant aquí
+
+
+def transform_data_static(items, id_column, buckets=DEFAULT_BUCKETS):
+    ids = [int(hashlib.md5(x[id_column].encode()).hexdigest(), 16) % buckets for x in items]
     new_items = []
     for i, it in enumerate(items):
         it_new = {
@@ -60,8 +63,8 @@ def transform_data_static(items, id_column):
     return new_items
 
 
-def get_static_options():
-    return {
+def get_static_options(buckets=DEFAULT_BUCKETS):
+    options = {
         'partition_rows': {
             'rows': ['pk'],
             'types': ['int']
@@ -74,6 +77,53 @@ def get_static_options():
             'info': ['all'],
         }
     }
+    if buckets != DEFAULT_BUCKETS:
+        options['comment'] = f"buckets={buckets}"        # nombre de buckets de la taula: no es pot canviar mai
+    return options
+
+
+def valid_buckets(buckets):
+    return isinstance(buckets, int) and not isinstance(buckets, bool) and buckets > 0
+
+
+def message_buckets(record):
+    """Buckets d'un missatge: el seu `buckets`, o 100 si no en porta. Aixeca ValueError si no és un enter positiu."""
+    buckets = record.get('buckets', DEFAULT_BUCKETS)
+    if not valid_buckets(buckets):
+        raise ValueError(f"'buckets' must be a positive integer, got {buckets!r}")
+    return buckets
+
+
+def check_static_buckets(session, table, buckets, verified):
+    """Una taula estàtica té un nombre de buckets fix: la `pk` és md5(id) % buckets, i amb un altre nombre una fila acabaria
+    en una partició diferent i quedaria duplicada. Es mira un cop per taula (`verified`) el que diu el comentari de la taula
+    existent (`buckets=N`; sense comentari, el valor d'abans, 100). Retorna None si és correcte o el text del problema."""
+    if table in verified:
+        return None
+    keyspace, name = table.split('.', 1)
+    row = session.execute("SELECT comment FROM system_schema.tables WHERE keyspace_name = %s AND table_name = %s",
+                          (keyspace, name)).one()
+    if row is not None:
+        comment = row.comment or ""
+        existing = int(comment.split("buckets=", 1)[1]) if comment.startswith("buckets=") else DEFAULT_BUCKETS
+        if existing != buckets:
+            return f"{table} té {existing} buckets i el missatge en porta {buckets}"
+    verified.add(table)
+    return None
+
+
+def static_buckets_problem(session, table, record, buckets, verified):
+    """`check_static_buckets` per a un missatge. Si no es pot llegir el comentari de la taula (permisos, Cassandra), un
+    missatge antic (sense `buckets`) es desa igualment com sempre, i s'avisa un sol cop; un amb `buckets` falla, perquè
+    no es pot assegurar que la taula tingui aquest nombre."""
+    try:
+        return check_static_buckets(session, table, buckets, verified)
+    except Exception:
+        if 'buckets' in record:
+            raise
+        logger.warning(f"Could not read the buckets of {table}, saving with the default ({DEFAULT_BUCKETS})", exc_info=True)
+        verified.add(table)
+        return None
 
 
 def store_consumer(database):
@@ -100,7 +150,9 @@ def store_consumer(database):
 
     summary_interval_s = 300
     stats = {"ok": 0, "failed": 0, "total": 0}
-    invalid_metadata = {"missing_tables": 0, "missing_row_keys": 0, "length_mismatch": 0}
+    invalid_metadata = {"missing_tables": 0, "missing_row_keys": 0, "length_mismatch": 0, "invalid_buckets": 0,
+                        "buckets_mismatch": 0}
+    verified_buckets = set()
     save_errors_by_table = {}
     last_summary_ts = time.time()
 
@@ -216,8 +268,19 @@ def store_consumer(database):
                         options = get_ts_options()
                     elif ['id'] == row_key:
                         cassandra_table = table.replace(":", ".")
-                        data = transform_data_static(data, 'id')
-                        options = get_static_options()
+                        try:
+                            buckets = message_buckets(record)
+                        except ValueError:
+                            invalid_metadata["invalid_buckets"] += 1
+                            logger.error(f"Invalid 'buckets' for {table}: {record.get('buckets')!r}")
+                            raise
+                        problem = static_buckets_problem(session, cassandra_table, record, buckets, verified_buckets)
+                        if problem:
+                            invalid_metadata["buckets_mismatch"] += 1
+                            logger.error(f"Buckets mismatch, the message is not saved: {problem}", extra={"cloudwatch": True})
+                            raise ValueError(problem)
+                        data = transform_data_static(data, 'id', buckets)
+                        options = get_static_options(buckets)
                     elif ["uri_measurement", "timestamp"] == row_key:
                         cassandra_table = table.replace(":", ".")
                         data = transform_data_ts(data, 'timestamp', 'uri_measurement')
